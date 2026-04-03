@@ -1,0 +1,42 @@
+<idea-plugin>
+    <id>com.branchdiff.branch-diff-highlighter</id>
+    <name>Branch Diff Highlighter</name>
+    <vendor>Trey Trahin</vendor>
+    <description><![CDATA[
+        Highlights all lines changed in the current Git branch compared to the base branch (main/master).
+        Changed lines get a colored background in the editor gutter and text area.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="com.branchdiff.BranchDiffStartupActivity"/>
+        <projectService serviceImplementation="com.branchdiff.GitDiffService"/>
+        <projectService serviceImplementation="com.branchdiff.HighlightManager"/>
+        <changesViewContent
+                id="branchdiff.changes"
+                tabName="Branch Changes"
+                className="com.branchdiff.BranchChangesContentProvider"
+                predicateClassName="com.branchdiff.BranchChangesVisibilityPredicate"
+                preloaderClassName="com.branchdiff.BranchChangesContentPreloader"
+                isInCommitToolWindow="true"/>
+    </extensions>
+
+    <actions>
+        <action id="BranchDiff.Refresh"
+                class="com.branchdiff.RefreshHighlightsAction"
+                text="Refresh Branch Diff Highlights"
+                description="Recompute and refresh branch diff highlights in all open editors">
+            <add-to-group group-id="VcsGroups" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt shift D"/>
+        </action>
+        <action id="BranchDiff.Toggle"
+                class="com.branchdiff.ToggleHighlightsAction"
+                text="Toggle Branch Diff Highlights"
+                description="Toggle branch diff highlighting on/off">
+            <add-to-group group-id="VcsGroups" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt D"/>
+        </action>
+    </actions>
+</idea-plugin>

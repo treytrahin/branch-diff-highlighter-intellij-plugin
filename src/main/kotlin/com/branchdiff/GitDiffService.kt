@@ -32,26 +32,7 @@ class GitDiffService(private val project: Project) {
         val output = runGitCommand(repoRoot, "diff", "$baseBranch...HEAD", "--name-status", "--no-color")
             ?: return emptyList()
 
-        return output.lines()
-            .filter { it.isNotBlank() }
-            .mapNotNull { line ->
-                val parts = line.split("\t")
-                if (parts.size < 2) return@mapNotNull null
-
-                val statusCode = parts[0].first()
-                val path = parts.last()
-                val oldPath = if (parts.size == 3) parts[1] else null
-
-                val type = when (statusCode) {
-                    'A' -> ChangeType.ADDED
-                    'M' -> ChangeType.MODIFIED
-                    'D' -> ChangeType.DELETED
-                    'R' -> ChangeType.RENAMED
-                    else -> ChangeType.MODIFIED
-                }
-
-                ChangedFile(path, type, oldPath)
-            }
+        return DiffParser.parseNameStatusOutput(output)
     }
 
     fun getRepoRoot(): String? = findRepoRoot()
@@ -68,7 +49,7 @@ class GitDiffService(private val project: Project) {
         val diffOutput = runGitCommand(repoRoot, "diff", "$baseBranch...HEAD", "--unified=0", "--no-color")
             ?: return emptyMap()
 
-        return parseDiffOutput(diffOutput)
+        return DiffParser.parseDiffOutput(diffOutput)
     }
 
     /**
@@ -117,36 +98,6 @@ class GitDiffService(private val project: Project) {
         return null
     }
 
-    private fun parseDiffOutput(output: String): Map<String, List<ChangedLine>> {
-        val result = mutableMapOf<String, MutableList<ChangedLine>>()
-        var currentFile: String? = null
-
-        for (line in output.lines()) {
-            // Detect file being diffed: +++ b/path/to/file
-            if (line.startsWith("+++ b/")) {
-                currentFile = line.removePrefix("+++ b/")
-                continue
-            }
-
-            // Parse hunk headers: @@ -oldStart,oldCount +newStart,newCount @@
-            if (line.startsWith("@@") && currentFile != null) {
-                val hunkMatch = HUNK_PATTERN.find(line) ?: continue
-                val oldCount = hunkMatch.groupValues[1].toIntOrNull() ?: 0
-                val newStart = hunkMatch.groupValues[2].toIntOrNull() ?: continue
-                val newCount = hunkMatch.groupValues[3].toIntOrNull() ?: 1
-
-                val changeType = if (oldCount == 0) ChangeType.ADDED else ChangeType.MODIFIED
-                val fileChanges = result.getOrPut(currentFile) { mutableListOf() }
-
-                for (i in 0 until newCount) {
-                    fileChanges.add(ChangedLine(newStart + i, changeType))
-                }
-            }
-        }
-
-        return result
-    }
-
     private fun runGitCommand(repoRoot: String, vararg args: String): String? {
         return try {
             val command = listOf("git", "-C", repoRoot) + args.toList()
@@ -165,10 +116,6 @@ class GitDiffService(private val project: Project) {
     }
 
     companion object {
-        // Matches @@ -old,oldCount +newStart,newCount @@ or @@ -old +newStart,newCount @@
-        // Also handles cases like @@ -0,0 +1,5 @@ or @@ -5 +5,2 @@
-        private val HUNK_PATTERN = Regex("""@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@""")
-
         fun getInstance(project: Project): GitDiffService =
             project.getService(GitDiffService::class.java)
     }

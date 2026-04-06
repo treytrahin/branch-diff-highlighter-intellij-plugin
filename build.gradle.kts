@@ -20,6 +20,11 @@ dependencies {
         bundledPlugin("Git4Idea")
         instrumentationTools()
     }
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 kotlin {

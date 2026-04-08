@@ -70,6 +70,8 @@ class HighlightManager(private val project: Project) : Disposable {
         val markupModel = editor.markupModel
         val highlighters = mutableListOf<RangeHighlighter>()
 
+        val changedLineSet = changedLines.associate { it.line to it.type }
+
         for (change in changedLines) {
             val lineIndex = change.line - 1 // Git lines are 1-based, editor is 0-based
             if (lineIndex < 0 || lineIndex >= document.lineCount) continue
@@ -90,7 +92,9 @@ class HighlightManager(private val project: Project) : Disposable {
                 HighlighterTargetArea.LINES_IN_RANGE
             )
 
-            highlighter.gutterIconRenderer = BranchDiffGutterRenderer(change.type)
+            val hasNeighborAbove = changedLineSet.containsKey(change.line - 1)
+            val hasNeighborBelow = changedLineSet.containsKey(change.line + 1)
+            highlighter.gutterIconRenderer = BranchDiffGutterRenderer(change.type, hasNeighborAbove, hasNeighborBelow)
             highlighters.add(highlighter)
         }
 
